@@ -1,0 +1,8 @@
+pandas
+numpy
+yfinance
+gymnasium
+stable-baselines3[extra]
+torch
+ta
+jupyterlab
