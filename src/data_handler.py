@@ -1,10 +1,7 @@
 import pandas as pd
 import yfinance as yf
-import logging
 from ta.momentum import rsi
 
-# Configure basic logging to show INFO level messages and a timestamp.
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def fetch_data(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
     """
