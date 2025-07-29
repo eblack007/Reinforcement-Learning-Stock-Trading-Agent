@@ -1,5 +1,5 @@
 import pandas as pd
-from stable_baselines3 import DQN
+from stable_baselines3 import DQN, PPO
 from src.data_handler import fetch_data
 from src.environment import TradingEnv
 
@@ -16,13 +16,9 @@ if df.empty:
 env = TradingEnv(df)
 
 # --- 3. Instantiate the Model ---
-# I am using a DQN model with a Multi-Layer Perceptron (MLP) policy.
+# I am using a PPO model with a Multi-Layer Perceptron (MLP) policy.
 # 'verbose=1' will print out training progress.
-model = DQN('MlpPolicy', 
-            env, 
-            verbose=1, 
-            exploration_fraction=0.5,
-            exploration_final_eps=0.1)
+model = PPO("MlpPolicy", env, verbose=1)
 
 # --- 4. Train the Model ---
 # We'll train it for 20,000 timesteps. This is a starting point and
@@ -31,6 +27,6 @@ model.learn(total_timesteps=100000)
 
 # --- 5. Save the Model ---
 # The trained model is saved for later evaluation.
-model.save("saved_models/dqn_spy_trading")
+model.save("saved_models/ppo_spy_trading")
 
-print("\nTraining complete. Model saved to saved_models/dqn_spy_trading.zip")
+print("\nTraining complete. Model saved to saved_models/ppo_spy_trading.zip")
