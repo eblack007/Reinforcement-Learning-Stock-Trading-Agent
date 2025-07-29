@@ -1,4 +1,4 @@
-from stable_baselines3 import DQN
+from stable_baselines3 import DQN, PPO
 from src.data_handler import fetch_data
 from src.environment import TradingEnv
 
@@ -14,7 +14,7 @@ if df_eval.empty:
 eval_env = TradingEnv(df_eval)
 
 # --- 3. Load the Trained Model ---
-model = DQN.load("saved_models/dqn_spy_trading.zip")
+model = PPO.load("saved_models/ppo_spy_trading.zip")
 
 # --- 4. Run the Evaluation Loop ---
 obs, info = eval_env.reset()
