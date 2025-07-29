@@ -1,31 +1,33 @@
 import pandas as pd
 import yfinance as yf
 from ta.momentum import rsi
-
+from ta.trend import MACD
 
 def fetch_data(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
     """
-    Fetches historical stock data from Yahoo Finance.
-
-    Args:
-        ticker (str): The stock ticker symbol (e.g., 'SPY').
-        start_date (str): The start date for the data in 'YYYY-MM-DD' format.
-        end_date (str): The end date for the data in 'YYYY-MM-DD' format.
-
-    Returns:
-        pd.DataFrame: A DataFrame containing the OHLCV data, or an empty
-                      DataFrame if the download fails.
+    Fetches historical stock data, handles MultiIndex columns, and adds indicators.
     """
     try:
         data = yf.download(ticker, start=start_date, end=end_date)
         if data.empty:
             print(f"No data found for {ticker} from {start_date} to {end_date}.")
             return pd.DataFrame()
-
-        # Calculate RSI and add it to the DataFrame
-        data['RSI'] = rsi(data['Close'].iloc[:, 0], window=14)
         
-        # Remove rows with NaN values (at the beginning)
+        # --- THE FIX: Handle MultiIndex Columns ---
+        # If the columns are a MultiIndex, flatten them
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.droplevel(1) # Drop the 'Ticker' level
+
+        # Now, force all column names to lowercase
+        data.columns = [col.lower() for col in data.columns]
+
+        # Calculate indicators using the standardized 'close' column
+        data['rsi'] = rsi(data['close'], window=14)
+        macd_indicator = MACD(data['close'])
+        data['macd'] = macd_indicator.macd()
+        data['macd_signal'] = macd_indicator.macd_signal()
+        data['macd_hist'] = macd_indicator.macd_diff()
+        
         data.dropna(inplace=True)
         
         print(f"Successfully downloaded and prepared data for {ticker}.")
@@ -35,7 +37,6 @@ def fetch_data(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
         return pd.DataFrame()
 
 if __name__ == '__main__':
-    # Example of how to use the function
     spy_data = fetch_data(ticker='SPY', start_date='2020-01-01', end_date='2023-12-31')
     if not spy_data.empty:
         print("\nSPY Data Head:")
