@@ -57,6 +57,7 @@ class TradingEnv(gym.Env):
         reward = new_net_worth - self.net_worth
         self.net_worth = new_net_worth
 
+        # Penalty for holding cash
         if action == 0 and self.shares_held == 0:
             reward -= 2
 

@@ -1,6 +1,7 @@
 from stable_baselines3 import DQN, PPO
 from src.data_handler import fetch_data
 from src.environment import TradingEnv
+import numpy as np
 
 # --- 1. Load Test Data ---
 # This is the "out-of-sample" data the model has never seen.
@@ -16,27 +17,28 @@ eval_env = TradingEnv(df_eval)
 # --- 3. Load the Trained Model ---
 model = PPO.load("saved_models/ppo_spy_trading.zip")
 
+n_episodes = 10
+episode_profits = []
+
 # --- 4. Run the Evaluation Loop ---
-obs, info = eval_env.reset()
-done = False
-while not done:
-    # Use deterministic=True for evaluation to get the best action
-    action, _states = model.predict(obs, deterministic=True)
+for episode in range(n_episodes):
+    obs, info = eval_env.reset()
+    done = False
+    while not done:
+        action, _states = model.predict(obs, deterministic=True)
+        obs, reward, terminated, truncated, info = eval_env.step(action)
+        done = terminated or truncated
     
-    # Take a step in the environment
-    obs, reward, terminated, truncated, info = eval_env.step(action)
-    
-    # The 'done' flag is a combination of terminated and truncated
-    done = terminated or truncated
-    
-    # Optional: Render the environment to see progress
-    eval_env.render()
+    # Store the profit from this episode
+    profit = eval_env.net_worth - eval_env.initial_balance
+    episode_profits.append(profit)
+    print(f"Episode {episode + 1}/{n_episodes} - PnL: ${profit:.2f}")
 
-print("\n--- Evaluation Complete ---")
-print(f"Initial Balance: ${eval_env.initial_balance:.2f}")
-print(f"Final Net Worth: ${eval_env.net_worth:.2f}")
 
-pnl = eval_env.net_worth - eval_env.initial_balance
-pnl_percent = (pnl / eval_env.initial_balance) * 100
-print(f"Profit/Loss (PnL): ${pnl:.2f} ({pnl_percent:.2f}%)")
-print("--------------------------")
+avg_pnl = np.mean(episode_profits)
+avg_pnl_percent = (avg_pnl / eval_env.initial_balance) * 100
+
+print("\n--- Average Evaluation Complete ---")
+print(f"Ran {n_episodes} episodes.")
+print(f"Average Profit/Loss (PnL): ${avg_pnl:.2f} ({avg_pnl_percent:.2f}%)")
+print("---------------------------------")
