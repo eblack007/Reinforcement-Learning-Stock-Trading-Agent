@@ -13,12 +13,11 @@ class TradingEnv(gym.Env):
         self.look_back_window = 5
         self.shares_to_trade = 10
 
-        # Define action space: 0: Hold, 1: Buy, 2: Sell
         self.action_space = gym.spaces.Discrete(3)
 
-        # Define observation space (prices + RSI for look_back_window days + holdings + balance)
+        # Observation space: 5 features (close, rsi, macd, macd_signal, macd_hist)
         self.observation_space = gym.spaces.Box(
-            low=0, high=np.inf, shape=(self.look_back_window * 2 + 2,), dtype=np.float32
+            low=-np.inf, high=np.inf, shape=(self.look_back_window * 5 + 2,), dtype=np.float32
         )
 
     def reset(self, seed=None):
@@ -29,68 +28,45 @@ class TradingEnv(gym.Env):
         self.current_step = np.random.randint(
             self.look_back_window, len(self.df) - 1
         )
-
+        self.action = None  # To store the last action
         return self._next_observation(), {}
 
     def _next_observation(self):
-        # Get the price and RSI data for the look-back window
+        # Use the correct lowercase column names
         frame = self.df.iloc[
             self.current_step - self.look_back_window : self.current_step
-        ][['Close', 'RSI']].values
+        ][['close', 'rsi', 'macd', 'macd_signal', 'macd_hist']].values
 
-        # Flatten the frame and append current holdings and balance
         obs = np.append(frame.flatten(), [self.shares_held, self.balance])
         return obs.astype(np.float32)
 
     def step(self, action):
         action = action.item()
+        self.action = action  # Store the action for rendering
+        current_price = self.df['close'].iloc[self.current_step]
         
-        # This is the correct, future-proof way to get the current price
-        current_price = self.df['Close'].iloc[:, 0].iloc[self.current_step]
-        
-        trade_executed = False
-        
-        # Execute the action
-        if action == 1:  # Buy
-            cost = self.shares_to_trade * current_price
-            if self.balance > cost:
-                self.shares_held += self.shares_to_trade
-                self.balance -= cost
-                trade_executed = True
+        cost = self.shares_to_trade * current_price
+        if action == 1 and self.balance > cost:
+            self.shares_held += self.shares_to_trade
+            self.balance -= cost
+        elif action == 2 and self.shares_held >= self.shares_to_trade:
+            self.shares_held -= self.shares_to_trade
+            self.balance += self.shares_to_trade * current_price
 
-        elif action == 2:  # Sell
-            # CORRECTED: Use >= to allow selling all shares
-            if self.shares_held >= self.shares_to_trade:
-                self.balance += self.shares_to_trade * current_price
-                self.shares_held -= self.shares_to_trade
-                trade_executed = True
-
-        # Calculate the net worth after the potential trade
         new_net_worth = self.balance + self.shares_held * current_price
-        
-        # The base reward is the change in net worth
         reward = new_net_worth - self.net_worth
         self.net_worth = new_net_worth
 
-        # Apply penalties for ineffective actions
-        if not trade_executed:
-            if action == 1 or action == 2:
-                reward -= 10  # Penalize trying to buy/sell but failing
-            elif action == 0 and self.shares_held == 0:
-                reward -= 1 # Small penalty for holding cash
+        if action == 0 and self.shares_held == 0:
+            reward -= 2
 
-        # Move to the next time step
         self.current_step += 1
-        
-        # Check if the episode is done
         done = self.net_worth <= 0 or self.current_step >= len(self.df) - 1
         obs = self._next_observation()
         
-        terminated = done
-        truncated = False
-        info = {}
-
-        return obs, reward, terminated, truncated, info
+        return obs, reward, done, False, {}
 
     def render(self):
-        print(f'Step: {self.current_step}, Net Worth: {self.net_worth:.2f}, Shares: {self.shares_held}, Balance: {self.balance:.2f}')
+        action_map = {0: 'Hold', 1: 'Buy', 2: 'Sell'}
+        action_str = action_map.get(self.action, 'N/A')
+        print(f'Step: {self.current_step}, Action: {action_str}, Net Worth: {self.net_worth:.2f}, Shares: {self.shares_held}, Balance: {self.balance:.2f}')
